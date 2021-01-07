@@ -22,10 +22,10 @@ public class LoggerHelper {
 
     public static <T, R> Function<T, Mono<R>> withMDC(Function<T, Mono<R>> block) {
         return value -> Mono.deferContextual(context -> {
-            Optional<Map<String, String>> tracingContext = context.getOrEmpty(MDC_ID_KEY);
-            if (tracingContext.isPresent()) {
+            Optional<Map<String, String>> mdcContext = context.getOrEmpty(MDC_ID_KEY);
+            if (mdcContext.isPresent()) {
                 try {
-                    MDC.setContextMap(tracingContext.get());
+                    MDC.setContextMap(mdcContext.get());
                     return block.apply(value);
                 } finally {
                     MDC.clear();

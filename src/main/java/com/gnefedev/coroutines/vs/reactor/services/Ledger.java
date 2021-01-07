@@ -72,7 +72,11 @@ public class Ledger {
                 .onErrorMap(
                         OptimisticLockException.class,
                         e -> new ResponseStatusException(HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, "limit of OptimisticLockException exceeded", e)
-                );
+                )
+                .onErrorResume(withMDC(e -> {
+                    log.error("error on transfer", e);
+                    return Mono.error(e);
+                }));
     }
 
     public Mono<Void> transferParallel(String transactionKey, long fromAccountId, long toAccountId, BigDecimal amountToTransfer) {
