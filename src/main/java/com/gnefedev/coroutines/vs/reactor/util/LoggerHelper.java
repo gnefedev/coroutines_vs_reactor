@@ -21,20 +21,18 @@ public class LoggerHelper {
 
 
     public static <T, R> Function<T, Mono<R>> withMDC(Function<T, Mono<R>> block) {
-        return value -> Mono.subscriberContext()
-                .flatMap(context -> {
-                    Optional<Map<String, String>> tracingContext = context.getOrEmpty(MDC_ID_KEY);
-                    if (tracingContext.isPresent()) {
-                        try {
-                            MDC.setContextMap(tracingContext.get());
-                            return block.apply(value);
-                        } finally {
-                            MDC.clear();
-                        }
-                    } else {
-                        return block.apply(value);
-                    }
-                });
+        return value -> Mono.deferContextual(context -> {
+            Optional<Map<String, String>> tracingContext = context.getOrEmpty(MDC_ID_KEY);
+            if (tracingContext.isPresent()) {
+                try {
+                    MDC.setContextMap(tracingContext.get());
+                    return block.apply(value);
+                } finally {
+                    MDC.clear();
+                }
+            } else {
+                return block.apply(value);
+            }
+        });
     }
-
 }

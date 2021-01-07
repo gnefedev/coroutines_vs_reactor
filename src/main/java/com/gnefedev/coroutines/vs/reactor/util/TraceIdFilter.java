@@ -19,6 +19,6 @@ public class TraceIdFilter implements WebFilter {
                 .orElse(Collections.emptyList())
                 .stream().findAny().orElse(UUID.randomUUID().toString());
         return chain.filter(exchange)
-                .subscriberContext(context -> LoggerHelper.addEntryToMDCContext(context, "traceId", traceId));
+                .contextWrite(context -> LoggerHelper.addEntryToMDCContext(context, "traceId", traceId));
     }
 }

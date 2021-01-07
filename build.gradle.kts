@@ -13,7 +13,7 @@ tasks.test {
 }
 
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:2.3.5.RELEASE"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:2.4.1"))
 
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("io.r2dbc:r2dbc-pool")
