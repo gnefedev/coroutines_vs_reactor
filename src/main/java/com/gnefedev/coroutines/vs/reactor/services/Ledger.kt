@@ -78,47 +78,50 @@ class Ledger(
 
     suspend fun transferParallel(transactionKey: String, fromAccountId: Long, toAccountId: Long, amountToTransfer: BigDecimal) {
         try {
-            retry(limitAttempts(3) + filter { it is OptimisticLockException }) {
-                val foundTransactionAsync = GlobalScope.async(coroutineContext) {
-                    logger.info("async fetch of transaction $transactionKey")
-                    transactionRepository.findByUniqueKey(transactionKey)
-                }
-                val fromAccountAsync = GlobalScope.async(coroutineContext) { accountRepository.findById(fromAccountId) }
-                val toAccountAsync = GlobalScope.async(coroutineContext) { accountRepository.findById(toAccountId) }
+            try {
+                retry(limitAttempts(3) + filter { it is OptimisticLockException }) {
+                    val foundTransactionAsync = GlobalScope.async(coroutineContext) {
+                        logger.info("async fetch of transaction $transactionKey")
+                        transactionRepository.findByUniqueKey(transactionKey)
+                    }
+                    val fromAccountAsync = GlobalScope.async(coroutineContext) { accountRepository.findById(fromAccountId) }
+                    val toAccountAsync = GlobalScope.async(coroutineContext) { accountRepository.findById(toAccountId) }
 
-                if (foundTransactionAsync.await() != null) {
-                    logger.warn("retry of transaction $transactionKey")
-                    return@retry
-                }
-
-                val fromAccount = fromAccountAsync.await() ?: throw IllegalArgumentException("account not found")
-                val toAccount = toAccountAsync.await() ?: throw IllegalArgumentException("account not found")
-                if (fromAccount.amount.subtract(amountToTransfer) < BigDecimal.ZERO || toAccount.amount.add(amountToTransfer) < BigDecimal.ZERO) {
-                    throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "can't transfer, not enough money")
-                }
-                val transactionToInsert = Transaction(
-                        amount = amountToTransfer,
-                        fromAccountId = fromAccountId,
-                        toAccountId = toAccountId,
-                        uniqueKey = transactionKey
-                )
-                transactionalOperator.executeAndAwait {
-                    try {
-                        transactionRepository.save(transactionToInsert)
-                    } catch (e: DataIntegrityViolationException) {
-                        if (e.message?.contains("TRANSACTION_UNIQUE_KEY") != true) {
-                            throw e;
-                        }
+                    if (foundTransactionAsync.await() != null) {
+                        logger.warn("retry of transaction $transactionKey")
+                        return@retry
                     }
 
-                    accountRepository.transferAmount(fromAccount.id!!, fromAccount.version, amountToTransfer.negate())
-                    accountRepository.transferAmount(toAccount.id!!, toAccount.version, amountToTransfer)
+                    val fromAccount = fromAccountAsync.await() ?: throw IllegalArgumentException("account not found")
+                    val toAccount = toAccountAsync.await() ?: throw IllegalArgumentException("account not found")
+                    if (fromAccount.amount.subtract(amountToTransfer) < BigDecimal.ZERO || toAccount.amount.add(amountToTransfer) < BigDecimal.ZERO) {
+                        throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "can't transfer, not enough money")
+                    }
+                    val transactionToInsert = Transaction(
+                            amount = amountToTransfer,
+                            fromAccountId = fromAccountId,
+                            toAccountId = toAccountId,
+                            uniqueKey = transactionKey
+                    )
+                    transactionalOperator.executeAndAwait {
+                        try {
+                            transactionRepository.save(transactionToInsert)
+                        } catch (e: DataIntegrityViolationException) {
+                            if (e.message?.contains("TRANSACTION_UNIQUE_KEY") != true) {
+                                throw e;
+                            }
+                        }
+
+                        accountRepository.transferAmount(fromAccount.id!!, fromAccount.version, amountToTransfer.negate())
+                        accountRepository.transferAmount(toAccount.id!!, toAccount.version, amountToTransfer)
+                    }
                 }
+            } catch (e: OptimisticLockException) {
+                throw ResponseStatusException(HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, "limit of OptimisticLockException exceeded", e)
             }
-        } catch (e: OptimisticLockException) {
-            throw ResponseStatusException(HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, "limit of OptimisticLockException exceeded", e)
+        } catch (e: Exception) {
+            logger.error(e) { "error on transfer" }
+            throw e;
         }
     }
-
-
 }

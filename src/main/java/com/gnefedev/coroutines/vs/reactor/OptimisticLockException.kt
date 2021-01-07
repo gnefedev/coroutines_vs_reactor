@@ -1,3 +1,3 @@
 package com.gnefedev.coroutines.vs.reactor
 
-class OptimisticLockException :RuntimeException()
+class OptimisticLockException : RuntimeException()
