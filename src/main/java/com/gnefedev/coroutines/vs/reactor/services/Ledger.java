@@ -53,16 +53,17 @@ public class Ledger {
                                         }
                                         return transactionalOperator.transactional(
                                                 transactionRepository.save(transactionToInsert)
+                                                        .onErrorResume(error -> {
+                                                            //transaction was inserted on parallel transaction, we may return success response
+                                                            if (error instanceof DataIntegrityViolationException && error.getMessage().contains("TRANSACTION_UNIQUE_KEY")) {
+                                                                return Mono.empty();
+                                                            } else {
+                                                                return Mono.error(error);
+                                                            }
+                                                        })
                                                         .then(accountRepository.transferAmount(fromAccount.getId(), fromAccount.getVersion(), amountToTransfer.negate()))
                                                         .then(accountRepository.transferAmount(toAccount.getId(), toAccount.getVersion(), amountToTransfer))
-                                        ).onErrorResume(error -> {
-                                            //transaction was inserted on parallel transaction, we may return success response
-                                            if (error instanceof DataIntegrityViolationException && error.getMessage().contains("TRANSACTION_UNIQUE_KEY")) {
-                                                return Mono.empty();
-                                            } else {
-                                                return Mono.error(error);
-                                            }
-                                        });
+                                        );
                                     }));
                 }))
                 .retryWhen(Retry.backoff(3, Duration.ofMillis(1))
@@ -107,16 +108,17 @@ public class Ledger {
             }
             return transactionalOperator.transactional(
                     transactionRepository.save(transactionToInsert)
+                            .onErrorResume(error -> {
+                                //transaction was inserted on parallel transaction, we may return success response
+                                if (error instanceof DataIntegrityViolationException && error.getMessage().contains("TRANSACTION_UNIQUE_KEY")) {
+                                    return Mono.empty();
+                                } else {
+                                    return Mono.error(error);
+                                }
+                            })
                             .then(accountRepository.transferAmount(fromAccount.getId(), fromAccount.getVersion(), amountToTransfer.negate()))
                             .then(accountRepository.transferAmount(toAccount.getId(), toAccount.getVersion(), amountToTransfer))
-            ).onErrorResume(error -> {
-                //transaction was inserted on parallel transaction, we may return success response
-                if (error instanceof DataIntegrityViolationException && error.getMessage().contains("TRANSACTION_UNIQUE_KEY")) {
-                    return Mono.empty();
-                } else {
-                    return Mono.error(error);
-                }
-            });
+            );
         }))
                 .retryWhen(Retry.backoff(3, Duration.ofMillis(1))
                         .filter(OptimisticLockException.class::isInstance)
@@ -125,6 +127,10 @@ public class Ledger {
                 .onErrorMap(
                         OptimisticLockException.class,
                         e -> new ResponseStatusException(HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, "limit of OptimisticLockException exceeded", e)
-                );
+                )
+                .onErrorResume(withMDC(e -> {
+                    log.error("error on transfer", e);
+                    return Mono.error(e);
+                }));
     }
 }
