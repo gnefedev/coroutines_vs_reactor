@@ -31,42 +31,47 @@ class Ledger(
 
     suspend fun transfer(transactionKey: String, fromAccountId: Long, toAccountId: Long, amountToTransfer: BigDecimal) {
         try {
-            retry(limitAttempts(3) + filter { it is OptimisticLockException }) {
-                val foundTransaction = transactionRepository.findByUniqueKey(transactionKey)
-                if (foundTransaction != null) {
-                    logger.warn("retry of transaction $transactionKey")
-                    return@retry
-                }
-
-                val fromAccount = accountRepository.findById(fromAccountId)
-                        ?: throw IllegalArgumentException("account not found")
-                val toAccount = accountRepository.findById(toAccountId)
-                        ?: throw IllegalArgumentException("account not found")
-
-                if (fromAccount.amount.subtract(amountToTransfer) < BigDecimal.ZERO || toAccount.amount.add(amountToTransfer) < BigDecimal.ZERO) {
-                    throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "can't transfer, not enough money")
-                }
-                val transactionToInsert = Transaction(
-                        amount = amountToTransfer,
-                        fromAccountId = fromAccountId,
-                        toAccountId = toAccountId,
-                        uniqueKey = transactionKey
-                )
-                transactionalOperator.executeAndAwait {
-                    try {
-                        transactionRepository.save(transactionToInsert)
-                    } catch (e: DataIntegrityViolationException) {
-                        if (e.message?.contains("TRANSACTION_UNIQUE_KEY") != true) {
-                            throw e;
-                        }
+            try {
+                retry(limitAttempts(3) + filter { it is OptimisticLockException }) {
+                    val foundTransaction = transactionRepository.findByUniqueKey(transactionKey)
+                    if (foundTransaction != null) {
+                        logger.warn("retry of transaction $transactionKey")
+                        return@retry
                     }
 
-                    accountRepository.transferAmount(fromAccount.id!!, fromAccount.version, amountToTransfer.negate())
-                    accountRepository.transferAmount(toAccount.id!!, toAccount.version, amountToTransfer)
+                    val fromAccount = accountRepository.findById(fromAccountId)
+                            ?: throw IllegalArgumentException("account not found")
+                    val toAccount = accountRepository.findById(toAccountId)
+                            ?: throw IllegalArgumentException("account not found")
+
+                    if (fromAccount.amount.subtract(amountToTransfer) < BigDecimal.ZERO || toAccount.amount.add(amountToTransfer) < BigDecimal.ZERO) {
+                        throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "can't transfer, not enough money")
+                    }
+                    val transactionToInsert = Transaction(
+                            amount = amountToTransfer,
+                            fromAccountId = fromAccountId,
+                            toAccountId = toAccountId,
+                            uniqueKey = transactionKey
+                    )
+                    transactionalOperator.executeAndAwait {
+                        try {
+                            transactionRepository.save(transactionToInsert)
+                        } catch (e: DataIntegrityViolationException) {
+                            if (e.message?.contains("TRANSACTION_UNIQUE_KEY") != true) {
+                                throw e;
+                            }
+                        }
+
+                        accountRepository.transferAmount(fromAccount.id!!, fromAccount.version, amountToTransfer.negate())
+                        accountRepository.transferAmount(toAccount.id!!, toAccount.version, amountToTransfer)
+                    }
                 }
+            } catch (e: OptimisticLockException) {
+                throw ResponseStatusException(HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, "limit of OptimisticLockException exceeded", e)
             }
-        } catch (e: OptimisticLockException) {
-            throw ResponseStatusException(HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, "limit of OptimisticLockException exceeded", e)
+        } catch (e: Exception) {
+            logger.error(e) { "error on transfer" }
+            throw e;
         }
     }
 
