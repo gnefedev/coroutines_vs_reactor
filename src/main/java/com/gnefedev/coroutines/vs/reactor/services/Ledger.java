@@ -48,7 +48,7 @@ public class Ledger {
                                                 .toAccountId(toAccountId)
                                                 .uniqueKey(transactionKey)
                                                 .build();
-                                        if (fromAccount.getAmount().subtract(amountToTransfer).compareTo(BigDecimal.ZERO) < 0 || toAccount.getAmount().add(amountToTransfer).compareTo(BigDecimal.ZERO) < 0) {
+                                        if (fromAccount.getAmount().subtract(amountToTransfer).compareTo(BigDecimal.ZERO) < 0) {
                                             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "can't transfer, not enough money"));
                                         }
                                         return transactionalOperator.transactional(
