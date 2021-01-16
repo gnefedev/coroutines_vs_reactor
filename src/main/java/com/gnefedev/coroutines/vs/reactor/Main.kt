@@ -1,9 +1,10 @@
-package com.gnefedev.coroutines.vs.reactor;
+package com.gnefedev.coroutines.vs.reactor
 
-import org.springframework.boot.SpringApplication;
+import org.springframework.boot.SpringApplication
 
-public class Main {
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class).start();
+object Main {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        SpringApplication.run(Application::class.java).start()
     }
 }
