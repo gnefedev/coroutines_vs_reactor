@@ -1,15 +1,14 @@
-package com.gnefedev.coroutines.vs.reactor.repos;
+package com.gnefedev.coroutines.vs.reactor.repos
 
-import com.gnefedev.coroutines.vs.reactor.entities.Account;
-import org.springframework.data.repository.Repository;
-import reactor.core.publisher.Mono;
+import com.gnefedev.coroutines.vs.reactor.entities.Account
+import org.springframework.data.repository.Repository
+import reactor.core.publisher.Flux
+import java.math.BigDecimal
 
-import java.math.BigDecimal;
+interface AccountRepository : Repository<Account, Long> {
+    fun findAll(): Flux<Account>
 
-public interface AccountRepository extends Repository<Account, Long> {
-    Mono<Account> save(Account account);
-
-    Mono<Void> transferAmount(long id, int version, BigDecimal toTransfer);
-
-    Mono<Account> findById(long id);
+    suspend fun save(account: Account): Account
+    suspend fun transferAmount(id: Long, version: Int, toTransfer: BigDecimal)
+    suspend fun findById(id: Long): Account?
 }

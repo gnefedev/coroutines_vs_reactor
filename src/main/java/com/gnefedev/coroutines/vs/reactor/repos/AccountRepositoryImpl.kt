@@ -1,18 +1,15 @@
-package com.gnefedev.coroutines.vs.reactor.repos;
+package com.gnefedev.coroutines.vs.reactor.repos
 
-import com.gnefedev.coroutines.vs.reactor.OptimisticLockException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.r2dbc.core.DatabaseClient;
-import reactor.core.publisher.Mono;
+import com.gnefedev.coroutines.vs.reactor.OptimisticLockException
+import kotlinx.coroutines.reactive.awaitFirstOrNull
+import org.springframework.r2dbc.core.DatabaseClient
+import java.math.BigDecimal
 
-import java.math.BigDecimal;
-
-@RequiredArgsConstructor
-public class AccountRepositoryImpl {
-    private final DatabaseClient databaseClient;
-
-    public Mono<Void> transferAmount(long id, int version, BigDecimal toTransfer) {
-        return databaseClient.sql("" +
+class AccountRepositoryImpl(
+        private val databaseClient: DatabaseClient
+) {
+    suspend fun transferAmount(id: Long, version: Int, toTransfer: BigDecimal) {
+        val rowsUpdated = databaseClient.sql("" +
                 "UPDATE account " +
                 "   SET amount = amount + :to_transfer, version = version + 1" +
                 "   WHERE id = :id AND version = :version"
@@ -22,12 +19,9 @@ public class AccountRepositoryImpl {
                 .bind("to_transfer", toTransfer)
                 .fetch()
                 .rowsUpdated()
-                .flatMap(i -> {
-                    if (i == 0) {
-                        return Mono.error(new OptimisticLockException());
-                    } else {
-                        return Mono.empty();
-                    }
-                });
+                .awaitFirstOrNull()
+        if (rowsUpdated == 0) {
+            throw OptimisticLockException()
+        }
     }
 }
