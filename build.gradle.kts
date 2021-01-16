@@ -28,6 +28,7 @@ dependencies {
     implementation("io.r2dbc:r2dbc-pool")
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("org.springframework:spring-aspects")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     runtimeOnly("io.r2dbc:r2dbc-h2")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.4.2")
