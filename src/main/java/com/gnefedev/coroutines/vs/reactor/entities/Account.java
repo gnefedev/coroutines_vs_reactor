@@ -1,20 +1,11 @@
-package com.gnefedev.coroutines.vs.reactor.entities;
+package com.gnefedev.coroutines.vs.reactor.entities
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Id
+import java.math.BigDecimal
 
-import java.math.BigDecimal;
-
-@RequiredArgsConstructor
-@Getter
-@Builder(toBuilder = true)
-@ToString
-public class Account {
-    @Id
-    private final Long id;
-    private final BigDecimal amount;
-    private final int version;
-}
+data class Account(
+        @Id
+        val id: Long? = null,
+        val amount: BigDecimal,
+        val version: Int = 0
+)
