@@ -68,26 +68,30 @@ class ApplicationTest @Autowired constructor(
         val statuses = CopyOnWriteArrayList<HttpStatus>()
         testConcurrently(
                 Executable {
+                    val transactionKey = UUID.randomUUID().toString()
                     statuses.add(webTestClient.put()
                             .uri("/api/ledger/transfer")
                             .body(BodyInserters.fromValue(TransferRequest(
                                     fromAccountId = firstAccount.id!!,
                                     toAccountId = secondAccount.id!!,
                                     amount = BigDecimal.valueOf(100),
-                                    transactionKey = UUID.randomUUID().toString()
+                                    transactionKey = transactionKey
                             )))
+                            .header("X-B3-TRACEID", transactionKey)
                             .exchange().returnResult(String::class.java)
                             .status)
                 },
                 Executable {
+                    val transactionKey = UUID.randomUUID().toString()
                     statuses.add(webTestClient.put()
                             .uri("/api/ledger/transfer")
                             .body(BodyInserters.fromValue(TransferRequest(
                                     fromAccountId = firstAccount.id!!,
                                     toAccountId = secondAccount.id!!,
                                     amount = BigDecimal.valueOf(100),
-                                    transactionKey = UUID.randomUUID().toString()
+                                    transactionKey = transactionKey
                             )))
+                            .header("X-B3-TRACEID", transactionKey)
                             .exchange().returnResult(String::class.java)
                             .status)
                 }

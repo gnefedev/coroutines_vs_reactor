@@ -44,6 +44,7 @@ class Ledger(
                     val toAccount = accountRepository.findById(toAccountId)
                             ?: throw IllegalArgumentException("account not found")
 
+                    logger.warn("checking for $transactionKey")
                     if (fromAccount.amount - amountToTransfer < BigDecimal.ZERO) {
                         throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "can't transfer, not enough money")
                     }
