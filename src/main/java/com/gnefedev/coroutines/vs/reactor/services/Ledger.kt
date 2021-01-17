@@ -8,8 +8,8 @@ import com.gnefedev.coroutines.vs.reactor.entities.Transaction
 import com.gnefedev.coroutines.vs.reactor.repos.AccountRepository
 import com.gnefedev.coroutines.vs.reactor.repos.TransactionRepository
 import com.gnefedev.coroutines.vs.reactor.util.filter
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import mu.KLogging
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
@@ -19,7 +19,6 @@ import org.springframework.transaction.reactive.executeAndAwait
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.util.*
-import kotlin.coroutines.coroutineContext
 
 @Component
 class Ledger(
@@ -76,16 +75,16 @@ class Ledger(
     }
 
 
-    suspend fun transferParallel(transactionKey: String, fromAccountId: Long, toAccountId: Long, amountToTransfer: BigDecimal) {
+    suspend fun transferParallel(transactionKey: String, fromAccountId: Long, toAccountId: Long, amountToTransfer: BigDecimal) = coroutineScope {
         try {
             try {
                 retry(limitAttempts(3) + filter { it is OptimisticLockException }) {
-                    val foundTransactionAsync = GlobalScope.async(coroutineContext) {
+                    val foundTransactionAsync = async {
                         logger.info("async fetch of transaction $transactionKey")
                         transactionRepository.findByUniqueKey(transactionKey)
                     }
-                    val fromAccountAsync = GlobalScope.async(coroutineContext) { accountRepository.findById(fromAccountId) }
-                    val toAccountAsync = GlobalScope.async(coroutineContext) { accountRepository.findById(toAccountId) }
+                    val fromAccountAsync = async { accountRepository.findById(fromAccountId) }
+                    val toAccountAsync = async { accountRepository.findById(toAccountId) }
 
                     if (foundTransactionAsync.await() != null) {
                         logger.warn("retry of transaction $transactionKey")
